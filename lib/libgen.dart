@@ -29,9 +29,10 @@ class Libgen {
     return "search.php?req=$joinedInput&lg_topic=libgen&open=0&view=simple&res=$numResult&phrase=1&column=def";
   }
 
-  _getData(WebScraper webScraper) {
+  List<LibgenResult> _getData(WebScraper webScraper) {
     final List<Element> trs = webScraper.getElements('table.c > tbody > tr');
     final results = List<LibgenResult>();
+    print("Found ${trs.length} rows");
 
     for (var tr in trs) {
       var result = LibgenResult();
@@ -66,16 +67,20 @@ class Libgen {
       }
     }
 
+    print("Found ${results.length} results in _getData");
     return results;
   }
 
-  performSearch(String input) async {
+  Future<List<LibgenResult>> performSearch(String input) async {
+    print("Searching...");
     var searchQuery = getQueryString(input);
     final webScraper = WebScraper(home);
 
     if (await webScraper.loadWebPage(searchQuery)) {
       return _getData(webScraper);
     }
+
+    return List<LibgenResult>();
   }
 
   String _extractTitle(Element td) {
