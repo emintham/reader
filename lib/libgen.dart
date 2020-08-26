@@ -113,12 +113,15 @@ class Libgen {
   }
 
   extractSecondLevelLink(String link) async {
+    print('Got link $link');
     final uri = Uri.parse(link);
     final scraper = WebScraper(uri.origin);
 
     if (await scraper.loadWebPage(uri.path)) {
       final List<Element> as = scraper.getElements('h2 > a');
       if (as.length > 0) {
+        print("extractSecondLevelLink");
+        print(as[0].attributes['href']);
         return as[0].attributes['href'];
       }
     }
