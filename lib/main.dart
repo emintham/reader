@@ -1,15 +1,10 @@
-import 'dart:core';
-
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart' hide Element;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:reader/libgen.dart';
-import 'package:open_file/open_file.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 void main() async {
   await Hive.initFlutter();
@@ -43,8 +38,6 @@ class _HomePageState extends State<HomePage> {
   var _results = List<LibgenResult>();
   var _isLoading = false;
   var _pageIndex = 0;
-  var _currentDownload = -1;
-  var _percentDownloaded = 0.0;
 
   Box get box => Hive.box("toDownload");
 
@@ -187,112 +180,50 @@ class _HomePageState extends State<HomePage> {
         final links = item.links;
         final link = links.length > 0 ? links[0] : null;
 
-        if (link == null) {
-          return null;
-        }
+        return Container(
+          padding: const EdgeInsets.only(left: 20.0),
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                child: Container(
+                  child: Text(
+                    item.title,
+                    textAlign: TextAlign.justify,
+                    style: TextStyle(
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+              ),
+              if (link != null)
+                Container(
+                  height: 50,
+                  margin: const EdgeInsets.only(
+                    left: 2.0,
+                  ),
+                  child: IconButton(
+                    icon: Icon(Icons.arrow_downward),
+                    onPressed: () async {
+                      final url = await Libgen().extractSecondLevelLink(link);
+                      if (url == '') {
+                        Scaffold.of(context).showSnackBar(
+                          SnackBar(content: Text("Failed to parse URL.")),
+                        );
+                      }
 
-        return buildResultItem(item, link, index);
+                      launch(url);
+                    },
+                  ),
+                ),
+            ],
+          ),
+        );
       },
       separatorBuilder: (_, index) {
         return Divider(height: 5);
       },
       itemCount: _results.length,
     );
-  }
-
-  buildResultItem(LibgenResult item, String link, int index) {
-    return Container(
-      padding: const EdgeInsets.only(left: 20.0),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Container(
-              child: Text(
-                item.title,
-                textAlign: TextAlign.justify,
-                style: TextStyle(
-                  fontSize: 18,
-                ),
-              ),
-            ),
-          ),
-          if (_currentDownload == index)
-            Container(
-              height: 50,
-              padding: const EdgeInsets.only(
-                left: 7.0,
-              ),
-              child: CircularPercentIndicator(
-                radius: 40,
-                lineWidth: 2,
-                percent: _percentDownloaded,
-                center: Text("${(_percentDownloaded * 100).floor()}%"),
-                progressColor: Colors.green,
-              ),
-            ),
-          if (_currentDownload != index)
-            Container(
-              height: 50,
-              margin: const EdgeInsets.only(
-                left: 2.0,
-              ),
-              child: IconButton(
-                icon: Icon(Icons.arrow_downward),
-                onPressed: () async {
-                  setState(() {
-                    _currentDownload = index;
-                  });
-
-                  final url = await Libgen().extractSecondLevelLink(link);
-
-                  if (url == '') {
-                    Scaffold.of(context).showSnackBar(
-                      SnackBar(content: Text("Failed to parse URL.")),
-                    );
-                  }
-
-                  final dio = Dio();
-                  final dir = await getTemporaryDirectory();
-                  final title = item.title.replaceAll(" ", "");
-                  final path = "${dir.path}/$title.epub";
-                  print("Writing to $path");
-
-                  try {
-                    dio.download(
-                      url,
-                      path,
-                      onReceiveProgress: (actual, total) {
-                        final percent = actual / total;
-                        if (percent < 1.0) {
-                          setState(() {
-                            _percentDownloaded = percent;
-                          });
-                        } else {
-                          resetDownload();
-                        }
-                      },
-                    );
-                  } catch (e) {
-                    Scaffold.of(context).showSnackBar(
-                        SnackBar(content: Text("Failed to download file. Please try again")));
-                    resetDownload();
-                    return;
-                  }
-
-                  OpenFile.open(path);
-                },
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  resetDownload() {
-    setState(() {
-      _percentDownloaded = 0.0;
-      _currentDownload = -1;
-    });
   }
 
   buildLoadingState() {
